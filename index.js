@@ -8,6 +8,7 @@ EmbedBuilder,
 ActionRowBuilder,
 ButtonBuilder,
 ButtonStyle,
+StringSelectMenuBuilder,
 ChannelType
 } = require("discord.js");
 
@@ -18,12 +19,10 @@ intents: [GatewayIntentBits.Guilds]
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
-let backup = null;
-
 const commands = [
 new SlashCommandBuilder()
 .setName("painel")
-.setDescription("Abrir painel de gerenciamento")
+.setDescription("Abrir painel do bot")
 ].map(c => c.toJSON());
 
 client.once("ready", async () => {
@@ -48,26 +47,16 @@ if (interaction.isChatInputCommand()) {
 if (interaction.commandName === "painel") {
 
 const embed = new EmbedBuilder()
-.setTitle("📊 Painel do Servidor")
-.setDescription("Gerencie o servidor usando os botões abaixo.")
+.setTitle("📊 Painel do Bot")
+.setDescription("Clique no botão para clonar um servidor.")
 .setColor(0x5865F2);
 
 const row = new ActionRowBuilder().addComponents(
 
 new ButtonBuilder()
-.setCustomId("backup")
-.setLabel("Criar Backup")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("restore")
-.setLabel("Restaurar Backup")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("clone")
-.setLabel("Clonar Estrutura")
-.setStyle(ButtonStyle.Secondary)
+.setCustomId("clone_server")
+.setLabel("🧬 Clonar Servidor")
+.setStyle(ButtonStyle.Primary)
 
 );
 
@@ -82,84 +71,53 @@ components: [row]
 
 if (interaction.isButton()) {
 
-const guild = interaction.guild;
+if (interaction.customId === "clone_server") {
 
-if (interaction.customId === "backup") {
+const guilds = client.guilds.cache
+.filter(g => g.id !== interaction.guild.id);
 
-backup = {
-roles: guild.roles.cache.map(r => ({
-name: r.name,
-color: r.color,
-permissions: r.permissions.bitfield
-})),
-channels: guild.channels.cache.map(c => ({
-name: c.name,
-type: c.type
-}))
-};
+const menu = new StringSelectMenuBuilder()
+.setCustomId("select_server")
+.setPlaceholder("Escolha o servidor para copiar");
+
+guilds.forEach(g => {
+menu.addOptions({
+label: g.name,
+value: g.id
+});
+});
+
+const row = new ActionRowBuilder().addComponents(menu);
 
 await interaction.reply({
-content: "📦 Backup criado com sucesso.",
+content: "Escolha o servidor que deseja copiar:",
+components: [row],
 ephemeral: true
 });
 
 }
 
-if (interaction.customId === "restore") {
-
-if (!backup) {
-
-return interaction.reply({
-content: "❌ Nenhum backup encontrado.",
-ephemeral: true
-});
-
 }
 
-for (const role of backup.roles) {
+if (interaction.isStringSelectMenu()) {
 
-if (role.name !== "@everyone") {
+if (interaction.customId === "select_server") {
 
-await guild.roles.create({
-name: role.name,
-color: role.color,
-permissions: role.permissions
+const sourceGuild = client.guilds.cache.get(interaction.values[0]);
+const targetGuild = interaction.guild;
+
+await interaction.update({
+content: "🧬 Clonando estrutura do servidor...",
+components: []
 });
 
-}
-
-}
-
-for (const channel of backup.channels) {
-
-await guild.channels.create({
-name: channel.name,
-type: channel.type
-});
-
-}
-
-await interaction.reply({
-content: "🔁 Backup restaurado com sucesso.",
-ephemeral: true
-});
-
-}
-
-if (interaction.customId === "clone") {
-
-await interaction.reply({
-content: "🧬 Clonando estrutura...",
-ephemeral: true
-});
-
-const roles = guild.roles.cache
+const roles = sourceGuild.roles.cache
 .filter(r => r.name !== "@everyone")
 .sort((a,b) => a.position - b.position);
 
 for (const role of roles.values()) {
 
-await guild.roles.create({
+await targetGuild.roles.create({
 name: role.name,
 color: role.color,
 permissions: role.permissions
@@ -167,20 +125,36 @@ permissions: role.permissions
 
 }
 
-const channels = guild.channels.cache.filter(c =>
+const categories = sourceGuild.channels.cache
+.filter(c => c.type === ChannelType.GuildCategory);
+
+for (const category of categories.values()) {
+
+await targetGuild.channels.create({
+name: category.name,
+type: ChannelType.GuildCategory
+});
+
+}
+
+const channels = sourceGuild.channels.cache
+.filter(c =>
 c.type === ChannelType.GuildText ||
-c.type === ChannelType.GuildVoice ||
-c.type === ChannelType.GuildCategory
+c.type === ChannelType.GuildVoice
 );
 
 for (const channel of channels.values()) {
 
-await guild.channels.create({
+await targetGuild.channels.create({
 name: channel.name,
 type: channel.type
 });
 
 }
+
+interaction.followUp({
+content: "✅ Estrutura clonada com sucesso!"
+});
 
 }
 
