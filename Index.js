@@ -1,76 +1,114 @@
 const {
-  Client,
-  GatewayIntentBits,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle
+Client,
+GatewayIntentBits,
+ActionRowBuilder,
+ButtonBuilder,
+ButtonStyle,
+EmbedBuilder
 } = require("discord.js");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+intents: [GatewayIntentBits.Guilds]
 });
 
+let backup = null;
+
 client.once("ready", () => {
-  console.log(`Bot ligado como ${client.user.tag}`);
+console.log(`Bot online: ${client.user.tag}`);
 });
 
 client.on("interactionCreate", async (interaction) => {
 
-  // comando /painel
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === "painel") {
+if (interaction.isChatInputCommand()) {
+if (interaction.commandName === "painel") {
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("clonar")
-          .setLabel("Clonar")
-          .setStyle(ButtonStyle.Primary)
-      );
+const embed = new EmbedBuilder()
+.setTitle("📦 Painel do Servidor")
+.setDescription("Use os botões abaixo para gerenciar o servidor.")
+.setColor(0x5865F2);
 
-      await interaction.reply({
-        content: "📊 **Painel de opções**",
-        components: [row]
-      });
-    }
-  }
+const row = new ActionRowBuilder().addComponents(
+new ButtonBuilder()
+.setCustomId("backup")
+.setLabel("Criar Backup")
+.setStyle(ButtonStyle.Primary),
 
-  // botão
-  if (interaction.isButton()) {
-    if (interaction.customId === "clonar") {
+new ButtonBuilder()
+.setCustomId("restaurar")
+.setLabel("Restaurar Backup")
+.setStyle(ButtonStyle.Success)
+);
 
-      const modal = new ModalBuilder()
-        .setCustomId("clonar_modal")
-        .setTitle("Inserir link");
+await interaction.reply({
+embeds: [embed],
+components: [row]
+});
 
-      const input = new TextInputBuilder()
-        .setCustomId("link_servidor")
-        .setLabel("Link do servidor")
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder("https://discord.gg/...");
+}
+}
 
-      const row = new ActionRowBuilder().addComponents(input);
+if (interaction.isButton()) {
 
-      modal.addComponents(row);
+if (interaction.customId === "backup") {
 
-      await interaction.showModal(modal);
-    }
-  }
+const guild = interaction.guild;
 
-  // resposta do modal
-  if (interaction.isModalSubmit()) {
-    if (interaction.customId === "clonar_modal") {
+backup = {
+roles: guild.roles.cache.map(r => ({
+name: r.name,
+color: r.color,
+permissions: r.permissions.bitfield
+})),
+channels: guild.channels.cache.map(c => ({
+name: c.name,
+type: c.type,
+parent: c.parentId
+}))
+};
 
-      const link = interaction.fields.getTextInputValue("link_servidor");
+await interaction.reply({
+content: "✅ Backup criado com sucesso.",
+ephemeral: true
+});
 
-      await interaction.reply({
-        content: `✅ Link recebido: ${link}\nProcesso confirmado.`,
-        ephemeral: true
-      });
-    }
-  }
+}
+
+if (interaction.customId === "restaurar") {
+
+if (!backup) {
+return interaction.reply({
+content: "❌ Nenhum backup encontrado.",
+ephemeral: true
+});
+}
+
+const guild = interaction.guild;
+
+for (const role of backup.roles) {
+if (role.name !== "@everyone") {
+await guild.roles.create({
+name: role.name,
+color: role.color,
+permissions: role.permissions
+});
+}
+}
+
+for (const channel of backup.channels) {
+await guild.channels.create({
+name: channel.name,
+type: channel.type
+});
+}
+
+await interaction.reply({
+content: "🧬 Estrutura restaurada com sucesso.",
+ephemeral: true
+});
+
+}
+
+}
 
 });
 
