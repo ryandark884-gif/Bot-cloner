@@ -1,23 +1,18 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
 client.once('ready', () => {
   console.log(`Bot ligado como ${client.user.tag}`);
 });
 
-client.on('messageCreate', message => {
-  if (message.author.bot) return;
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
 
-  if (message.content === "!ping") {
-    message.reply("🏓 Pong!");
+  if (interaction.commandName === 'painel') {
+    await interaction.reply('📩 Painel do suporte ativado!');
   }
 });
 
