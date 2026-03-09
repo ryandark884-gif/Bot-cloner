@@ -4,39 +4,69 @@ GatewayIntentBits,
 ActionRowBuilder,
 ButtonBuilder,
 ButtonStyle,
-EmbedBuilder
+EmbedBuilder,
+SlashCommandBuilder,
+REST,
+Routes
 } = require("discord.js");
 
 const client = new Client({
 intents: [GatewayIntentBits.Guilds]
 });
 
-let backup = null;
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
 
-client.once("ready", () => {
-console.log(`Bot online: ${client.user.tag}`);
+const commands = [
+new SlashCommandBuilder()
+.setName("painel")
+.setDescription("Abrir painel do bot")
+].map(command => command.toJSON());
+
+client.once("ready", async () => {
+
+console.log(`✅ Bot online: ${client.user.tag}`);
+
+const rest = new REST({ version: "10" }).setToken(TOKEN);
+
+try {
+
+await rest.put(
+Routes.applicationCommands(CLIENT_ID),
+{ body: commands }
+);
+
+console.log("✅ Comando /painel registrado");
+
+} catch (error) {
+console.error(error);
+}
+
 });
 
-client.on("interactionCreate", async (interaction) => {
+client.on("interactionCreate", async interaction => {
 
 if (interaction.isChatInputCommand()) {
+
 if (interaction.commandName === "painel") {
 
 const embed = new EmbedBuilder()
-.setTitle("📦 Painel do Servidor")
-.setDescription("Use os botões abaixo para gerenciar o servidor.")
+.setTitle("📊 Painel do Bot")
+.setDescription("Use os botões abaixo.")
 .setColor(0x5865F2);
 
 const row = new ActionRowBuilder().addComponents(
+
 new ButtonBuilder()
-.setCustomId("backup")
-.setLabel("Criar Backup")
+.setCustomId("ping")
+.setLabel("Ping")
 .setStyle(ButtonStyle.Primary),
 
 new ButtonBuilder()
-.setCustomId("restaurar")
-.setLabel("Restaurar Backup")
+.setCustomId("info")
+.setLabel("Informações")
 .setStyle(ButtonStyle.Success)
+
 );
 
 await interaction.reply({
@@ -45,64 +75,24 @@ components: [row]
 });
 
 }
+
 }
 
 if (interaction.isButton()) {
 
-if (interaction.customId === "backup") {
-
-const guild = interaction.guild;
-
-backup = {
-roles: guild.roles.cache.map(r => ({
-name: r.name,
-color: r.color,
-permissions: r.permissions.bitfield
-})),
-channels: guild.channels.cache.map(c => ({
-name: c.name,
-type: c.type,
-parent: c.parentId
-}))
-};
+if (interaction.customId === "ping") {
 
 await interaction.reply({
-content: "✅ Backup criado com sucesso.",
+content: "🏓 Pong! Bot funcionando.",
 ephemeral: true
 });
 
 }
 
-if (interaction.customId === "restaurar") {
-
-if (!backup) {
-return interaction.reply({
-content: "❌ Nenhum backup encontrado.",
-ephemeral: true
-});
-}
-
-const guild = interaction.guild;
-
-for (const role of backup.roles) {
-if (role.name !== "@everyone") {
-await guild.roles.create({
-name: role.name,
-color: role.color,
-permissions: role.permissions
-});
-}
-}
-
-for (const channel of backup.channels) {
-await guild.channels.create({
-name: channel.name,
-type: channel.type
-});
-}
+if (interaction.customId === "info") {
 
 await interaction.reply({
-content: "🧬 Estrutura restaurada com sucesso.",
+content: "🤖 Painel funcionando corretamente.",
 ephemeral: true
 });
 
@@ -112,4 +102,4 @@ ephemeral: true
 
 });
 
-client.login(process.env.TOKEN);
+client.login(TOKEN);
