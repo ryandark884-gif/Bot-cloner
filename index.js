@@ -48,16 +48,14 @@ if (interaction.commandName === "painel") {
 
 const embed = new EmbedBuilder()
 .setTitle("📊 Painel do Bot")
-.setDescription("Clique no botão para clonar um servidor.")
+.setDescription("Use o botão abaixo para clonar a estrutura de um servidor.")
 .setColor(0x5865F2);
 
 const row = new ActionRowBuilder().addComponents(
-
 new ButtonBuilder()
 .setCustomId("clone_server")
 .setLabel("🧬 Clonar Servidor")
 .setStyle(ButtonStyle.Primary)
-
 );
 
 await interaction.reply({
@@ -73,12 +71,11 @@ if (interaction.isButton()) {
 
 if (interaction.customId === "clone_server") {
 
-const guilds = client.guilds.cache
-.filter(g => g.id !== interaction.guild.id);
+const guilds = client.guilds.cache.filter(g => g.id !== interaction.guild.id);
 
 const menu = new StringSelectMenuBuilder()
 .setCustomId("select_server")
-.setPlaceholder("Escolha o servidor para copiar");
+.setPlaceholder("Escolha o servidor de origem");
 
 guilds.forEach(g => {
 menu.addOptions({
@@ -90,7 +87,7 @@ value: g.id
 const row = new ActionRowBuilder().addComponents(menu);
 
 await interaction.reply({
-content: "Escolha o servidor que deseja copiar:",
+content: "Selecione o servidor que deseja copiar:",
 components: [row],
 ephemeral: true
 });
@@ -111,17 +108,22 @@ content: "🧬 Clonando estrutura do servidor...",
 components: []
 });
 
+const roleMap = new Map();
+const categoryMap = new Map();
+
 const roles = sourceGuild.roles.cache
 .filter(r => r.name !== "@everyone")
 .sort((a,b) => a.position - b.position);
 
 for (const role of roles.values()) {
 
-await targetGuild.roles.create({
+const newRole = await targetGuild.roles.create({
 name: role.name,
 color: role.color,
 permissions: role.permissions
 });
+
+roleMap.set(role.id, newRole.id);
 
 }
 
@@ -130,10 +132,12 @@ const categories = sourceGuild.channels.cache
 
 for (const category of categories.values()) {
 
-await targetGuild.channels.create({
+const newCategory = await targetGuild.channels.create({
 name: category.name,
 type: ChannelType.GuildCategory
 });
+
+categoryMap.set(category.id, newCategory.id);
 
 }
 
@@ -147,12 +151,13 @@ for (const channel of channels.values()) {
 
 await targetGuild.channels.create({
 name: channel.name,
-type: channel.type
+type: channel.type,
+parent: categoryMap.get(channel.parentId) || null
 });
 
 }
 
-interaction.followUp({
+await interaction.followUp({
 content: "✅ Estrutura clonada com sucesso!"
 });
 
